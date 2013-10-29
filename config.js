@@ -10,5 +10,9 @@ var config = module.exports = {
 		: {
 			hostname: '127.0.0.1',
 			port: 6379
-		}
+		},
+	github: {
+		login: process.env.GITHUB_LOGIN,
+		token: process.env.GITHUB_TOKEN
+	}
 };
