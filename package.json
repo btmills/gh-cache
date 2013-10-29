@@ -1,0 +1,8 @@
+{
+	"name": "gh-cache",
+	"version": "0.0.1",
+	"dependencies": {
+		"express": "~3.4",
+		"redis": "~0.9"
+	}
+}
