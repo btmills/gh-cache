@@ -18,7 +18,7 @@ app.get('/' , function (req, res) {
 
 function cachify(path) {
 	app.get(path, function (req, res) {
-		if (req.param('auth') !== config.auth) {
+		if (config.auth && req.param('auth') !== config.auth) {
 			res.send(401);
 			console.error('Unauthorized request from ' + req.ip);
 		} else {
