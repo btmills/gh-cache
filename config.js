@@ -12,7 +12,7 @@ var config = module.exports = {
 			port: 6379
 		},
 	github: {
-		login: process.env.GITHUB_LOGIN,
-		token: process.env.GITHUB_TOKEN
+		client_id: process.env.GITHUB_ID,
+		client_secret: process.env.GITHUB_SECRET
 	}
 };

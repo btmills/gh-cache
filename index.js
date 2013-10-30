@@ -1,6 +1,7 @@
+var url = require('url');
 var express = require('express');
-var GitHub = require('github');
 var Redis = require('redis');
+var request = require('request');
 var config = require('./config');
 
 var app = express();
@@ -11,61 +12,47 @@ if (config.redis.auth) {
 	redis.auth(config.redis.auth.split(':')[1]);
 }
 
-var gh = new GitHub({
-	version: "3.0.0"
-});
-gh.authenticate({
-	type: "basic",
-	username: config.github.login,
-	password: config.github.token
-});
-
 app.get('/' , function (req, res) {
 	res.redirect('http://developer.github.com/');
 });
 
-app.get('/repos/:owner/:repo/contributors', function (req, res) {
-	redis.get(req.path, function (err, data) {
-		if (data) {
-			res.send(JSON.parse(data));
-		} else {
-			gh.repos.getContributors({
-				user: req.params.owner,
-				repo: req.params.repo
-			}, function (err, data) {
-				if (err) return console.error(req.path, err);
+function cachify(path) {
+	app.get(path, function (req, res) {
+		redis.get(req.path, function (err, data) {
+			if (data) {
+				res.set('Content-Type', 'application/json');
 				res.send(data);
-				redis.set(req.path, JSON.stringify(data), function (err, status) {
-					if (err || status !== 'OK') {
-						return console.error(req.path, status, err);
-					} else {
-						console.log('Saved', req.path);
+			} else {
+				request({
+					uri: url.resolve('https://api.github.com', req.path),
+					qs: {
+						client_id: config.github.client_id,
+						client_secret: config.github.client_secret
 					}
+				}, function (err, response, body) {
+					if (err || response.statusCode !== 200) {
+						res.send(500);
+						console.error(err, response);
+					} else {
+						res.set('Content-Type', 'application/json');
+						res.send(body);
+						redis.set(req.path, body, function (err, status) {
+							if (err || status !== 'OK') {
+								console.error(req.path, status, err);
+							} else {
+								console.log('Saved', req.path);
+							}
+						});
+					}
+					console.log('Rate limit remaining', response.headers['x-ratelimit-remaining']);
 				});
-			});
-		}
+			}
+		});
 	});
-});
+}
 
-app.get('/users/:user', function (req, res) {
-	redis.get(req.path, function (err, data) {
-		if (data) {
-			res.send(JSON.parse(data));
-		} else {
-			gh.user.get({}, function (err, data) {
-				if (err) return console.error(req.path, err);
-				res.send(data);
-				redis.set(req.path, JSON.stringify(data), function (err, status) {
-					if (err || status !== 'OK') {
-						return console.error(req.path, status, err);
-					} else {
-						console.log('Saved', req.path);
-					}
-				});
-			});
-		}
-	});
-});
+cachify('/repos/:owner/:repo/contributors');
+cachify('/users/:user');
 
 app.listen(config.port, function () {
 	console.log('Listening on port ' + config.port);
