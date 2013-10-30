@@ -18,36 +18,41 @@ app.get('/' , function (req, res) {
 
 function cachify(path) {
 	app.get(path, function (req, res) {
-		redis.get(req.path, function (err, data) {
-			if (data) {
-				res.set('Content-Type', 'application/json');
-				res.send(data);
-			} else {
-				request({
-					uri: url.resolve('https://api.github.com', req.path),
-					qs: {
-						client_id: config.github.client_id,
-						client_secret: config.github.client_secret
-					}
-				}, function (err, response, body) {
-					if (err || response.statusCode !== 200) {
-						res.send(500);
-						console.error(err, response);
-					} else {
-						res.set('Content-Type', 'application/json');
-						res.send(body);
-						redis.set(req.path, body, function (err, status) {
-							if (err || status !== 'OK') {
-								console.error(req.path, status, err);
-							} else {
-								console.log('Saved', req.path);
-							}
-						});
-					}
-					console.log('Rate limit remaining', response.headers['x-ratelimit-remaining']);
-				});
-			}
-		});
+		if (req.param('auth') !== config.auth) {
+			res.send(401);
+			console.error('Unauthorized request from ' + req.ip);
+		} else {
+			redis.get(req.path, function (err, data) {
+				if (data) {
+					res.set('Content-Type', 'application/json');
+					res.send(data);
+				} else {
+					request({
+						uri: url.resolve('https://api.github.com', req.path),
+						qs: {
+							client_id: config.github.client_id,
+							client_secret: config.github.client_secret
+						}
+					}, function (err, response, body) {
+						if (err || response.statusCode !== 200) {
+							res.send(500);
+							console.error(err, response);
+						} else {
+							res.set('Content-Type', 'application/json');
+							res.send(body);
+							redis.set(req.path, body, function (err, status) {
+								if (err || status !== 'OK') {
+									console.error(req.path, status, err);
+								} else {
+									console.log('Saved', req.path);
+								}
+							});
+						}
+						console.log('Rate limit remaining', response.headers['x-ratelimit-remaining']);
+					});
+				}
+			});
+		}
 	});
 }
 

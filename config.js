@@ -5,6 +5,7 @@ var production = process.env.NODE_ENV === 'production'
 var config = module.exports = {
 	env: production,
 	port: process.env.PORT || 5000,
+	auth: process.env.AUTH,
 	redis: process.env.REDISCLOUD_URL
 		? url.parse(process.env.REDISCLOUD_URL)
 		: {
